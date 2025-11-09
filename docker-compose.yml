@@ -1,0 +1,51 @@
+version: '2'
+services:
+    
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    ports: 
+      - '80:80'
+      - '443:443'
+    volumes: 
+      - certs:/etc/nginx/certs:ro
+      - /etc/nginx/vhost.d
+      - /usr/share/nginx/html
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - './config/client_max_body_size.conf:/etc/nginx/conf.d/client_max_body_size.conf'
+    restart: always
+
+  nginx-proxy-letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    depends_on:
+      - nginx-proxy
+    volumes_from:
+      - nginx-proxy
+    volumes: 
+      - certs:/etc/nginx/certs:rw
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment: 
+      - DEFAULT_EMAIL=tanapon395@gmail.com
+    restart: always
+
+  api:
+    image: megroupenterprise/se-67-backend:latest
+    ports: 
+      - '8000'
+    environment: 
+      - VIRTUAL_HOST=api.megroup.website
+      - LETSENCRYPT_HOST=api.megroup.website
+      - VIRTUAL_PORT=8000
+    restart: always
+  
+  web:
+    image: megroupenterprise/se-67-web:latest
+    ports: 
+      - '80'
+      - '443'
+    environment:
+      - VIRTUAL_HOST=www.megroup.website
+      - LETSENCRYPT_HOST=www.megroup.website
+    restart: always
+
+volumes:
+  certs:
