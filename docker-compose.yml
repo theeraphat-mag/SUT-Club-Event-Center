@@ -1,51 +1,46 @@
-version: '2'
+version: '3.8'
 services:
-    
-  nginx-proxy:
-    image: jwilder/nginx-proxy
-    ports: 
-      - '80:80'
-      - '443:443'
-    volumes: 
-      - certs:/etc/nginx/certs:ro
-      - /etc/nginx/vhost.d
-      - /usr/share/nginx/html
-      - /var/run/docker.sock:/tmp/docker.sock:ro
-      - './config/client_max_body_size.conf:/etc/nginx/conf.d/client_max_body_size.conf'
-    restart: always
-
-  nginx-proxy-letsencrypt:
-    image: jrcs/letsencrypt-nginx-proxy-companion
-    depends_on:
-      - nginx-proxy
-    volumes_from:
-      - nginx-proxy
-    volumes: 
-      - certs:/etc/nginx/certs:rw
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment: 
-      - DEFAULT_EMAIL=tanapon395@gmail.com
-    restart: always
-
   api:
-    image: megroupenterprise/se-67-backend:latest
-    ports: 
-      - '8000'
-    environment: 
-      - VIRTUAL_HOST=api.megroup.website
-      - LETSENCRYPT_HOST=api.megroup.website
-      - VIRTUAL_PORT=8000
-    restart: always
-  
-  web:
-    image: megroupenterprise/se-67-web:latest
-    ports: 
-      - '80'
-      - '443'
+    build: ./backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
-      - VIRTUAL_HOST=www.megroup.website
-      - LETSENCRYPT_HOST=www.megroup.website
-    restart: always
+      - PORT=8080
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=sut_club
+
+  db:
+    image: postgres:13
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sut_club"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=sut_club
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    environment:
+      - VITE_API_URL=http://api:8080
 
 volumes:
-  certs:
+  postgres_data:
